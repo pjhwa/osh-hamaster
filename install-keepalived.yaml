@@ -1,0 +1,36 @@
+---
+- name: Install and configure Keepalived
+  hosts: k8s_control_plane
+  become: yes
+  tasks:
+    - name: Install Keepalived
+      apt:
+        pkg:
+          - keepalived
+        state: present
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Configure Keepalived
+      template:
+        src: templates/keepalived.conf.j2
+        dest: /etc/keepalived/keepalived.conf
+        mode: '0644'
+      notify: Restart Keepalived
+
+    - name: Flush handlers
+      meta: flush_handlers
+
+    - name: Start and enable Keepalived
+      service:
+        name: keepalived
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Restart Keepalived
+      service:
+        name: keepalived
+        state: restarted
