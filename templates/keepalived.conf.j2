@@ -1,0 +1,20 @@
+vrrp_script chk_haproxy {
+    script "killall -0 haproxy"
+    interval 2
+    weight 2
+}
+
+vrrp_instance VI_1 {
+    interface {{ ansible_default_ipv4.interface }}
+    state {{ 'MASTER' if inventory_hostname == groups['k8s_control_plane'][0] else 'BACKUP' }}
+    virtual_router_id 52
+    priority {{ 100 if inventory_hostname == groups['k8s_control_plane'][0] else 99 }}
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass 1111
+    }
+    virtual_ipaddress {
+        {{ vip }}/24 dev {{ ansible_default_ipv4.interface }}
+    }
+}
