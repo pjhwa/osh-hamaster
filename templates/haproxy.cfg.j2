@@ -1,0 +1,25 @@
+global
+  log /dev/log local0
+  chroot /var/lib/haproxy
+  user haproxy
+  group haproxy
+  daemon
+
+defaults
+  log global
+  mode tcp
+  timeout connect 5000
+  timeout client 50000
+  timeout server 50000
+
+{% if inventory_hostname == groups['k8s_control_plane'][0] %}
+frontend kubernetes
+  bind {{ vip }}:16443
+  default_backend kubernetes-master
+
+backend kubernetes-master
+  balance roundrobin
+{% for host in groups['k8s_control_plane'] %}
+server {{ host }} {{ hostvars[host]['ansible_host'] }}:6443 check
+{% endfor %}
+{% endif %}
