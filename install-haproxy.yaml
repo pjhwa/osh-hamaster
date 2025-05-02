@@ -1,0 +1,66 @@
+---
+- name: Install and configure HAProxy
+  hosts: k8s_control_plane
+  become: yes
+  tasks:
+    - name: Install HAProxy
+      apt:
+        pkg:
+          - haproxy
+        state: present
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Verify VIP is assigned on master (k1)
+      shell: ip addr show | grep "{{ vip }}"
+      register: vip_check
+      failed_when: vip_check.rc != 0
+      retries: 5
+      delay: 10
+      until: vip_check.rc == 0
+      when: inventory_hostname == groups['k8s_control_plane'][0]  # k1에서만 확인
+
+    - name: Configure HAProxy
+      template:
+        src: templates/haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+        mode: '0644'
+      notify: Restart HAProxy
+      when: inventory_hostname == groups['k8s_control_plane'][0]  # k1에서만 구성
+
+    - name: Flush handlers
+      meta: flush_handlers
+      when: inventory_hostname == groups['k8s_control_plane'][0]
+
+    - name: Start and enable HAProxy
+      service:
+        name: haproxy
+        state: started
+        enabled: yes
+      when: inventory_hostname == groups['k8s_control_plane'][0]  # k1에서만 시작
+
+    - name: Check HAProxy service status
+      command: systemctl status haproxy
+      register: haproxy_status
+      ignore_errors: yes
+
+    - name: Debug HAProxy status
+      debug:
+        var: haproxy_status.stdout_lines
+
+    - name: Check if port 6443 is listening
+      command: netstat -tuln | grep 6443
+      register: port_check
+      ignore_errors: yes
+
+    - name: Debug port 6443 status
+      debug:
+        var: port_check.stdout
+  handlers:
+    - name: Restart HAProxy
+      service:
+        name: haproxy
+        state: restarted
+        no_block: yes
