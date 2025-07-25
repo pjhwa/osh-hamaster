@@ -13,6 +13,13 @@
       systemd:
         daemon_reload: yes
 
+    - name: Ensure /etc/haproxy directory exists
+      file:
+        path: /etc/haproxy
+        state: directory
+        mode: '0755'
+      when: inventory_hostname == groups['k8s_control_plane'][0]  # k1에서만 생성
+
     - name: Verify VIP is assigned on master (k1)
       shell: ip addr show | grep "{{ vip }}"
       register: vip_check
