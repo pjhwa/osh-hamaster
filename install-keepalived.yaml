@@ -13,6 +13,12 @@
       systemd:
         daemon_reload: yes
 
+    - name: Ensure /etc/keepalived directory exists
+      file:
+        path: /etc/keepalived
+        state: directory
+        mode: '0755'
+
     - name: Configure Keepalived
       template:
         src: templates/keepalived.conf.j2
